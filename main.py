@@ -82,7 +82,13 @@ def handle_data():
     if request.method == 'GET':
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
-                return jsonify(json.load(f))
+                data = json.load(f)
+                # 기존 파일에 이름 값이 없을 경우를 대비한 기본값 보정
+                if "me_name" not in data:
+                    data["me_name"] = "나"
+                if "other_name" not in data:
+                    data["other_name"] = "상대방"
+                return jsonify(data)
         
         # 유저 데이터 파일이 없을 경우 초기 기본값 반환
         return jsonify({
@@ -94,9 +100,13 @@ def handle_data():
             "messages": []
         })
     else:
-        # POST 요청: 전달받은 JSON 데이터를 유저별 파일에 저장
+        # POST 요청: 전달받은 JSON 데이터(이름, 사진, 메시지 등 전체 상태)를 유저별 파일에 저장
+        req_data = request.json
+        
+        # 기존에 저장된 데이터가 있다면 불러와서 이름이나 프로필 등이 유실되지 않도록 병합하거나 그대로 저장
+        # 프론트엔드에서 전체 상태(me_name, other_name 포함)를 통째로 보내고 있다면 그대로 저장해도 무방합니다.
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(request.json, f, ensure_ascii=False, indent=4)
+            json.dump(req_data, f, ensure_ascii=False, indent=4)
         return jsonify({"status": "success"})
 
 # --- 테스트용 경로 추가 ---
