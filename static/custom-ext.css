@@ -1,0 +1,31 @@
+/* 확장 프로그램 전용 설정 패널 스타일 */
+#ext-panel-root {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    width: 280px;
+    height: calc(100vh - 40px);
+    background: #ffffff;
+    color: white;
+    z-index: 9999;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    font-family: sans-serif;
+    overflow-y: auto;
+}
+
+#ext-panel-root h2 { font-size: 16px; color: #3498db; margin-top: 0; border-bottom: 1px solid #555; padding-bottom: 10px; }
+
+.ext-group { background: #ffffff; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
+.ext-group h4 { margin: 0 0 10px 0; font-size: 13px; color: #ecf0f1; }
+
+.ext-item { margin-bottom: 10px; }
+.ext-item label { display: block; font-size: 11px; color: #bdc3c7; margin-bottom: 4px; }
+.ext-item input[type="color"] { width: 100%; height: 25px; border: none; cursor: pointer; }
+
+/* 실시간 변경될 채팅창 스타일 (Injected) */
+.custom-time-hidden .chat-time { display: none !important; }
+.custom-sticker { position: absolute; font-size: 40px; cursor: move; user-select: none; z-index: 100; }

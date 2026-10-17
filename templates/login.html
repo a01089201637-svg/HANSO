@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>페어한소기록 - 로그인</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; }
+        .login-box { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 350px; }
+        h2 { text-align: center; color: #007AFF; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #007AFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .footer-link { text-align: center; margin-top: 15px; font-size: 0.9em; color: #666; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2 id="title">💬 페어한소기록</h2>
+        <div id="login-form">
+            <input type="text" id="l-id" placeholder="아이디">
+            <input type="password" id="l-pw" placeholder="비밀번호">
+            <button onclick="auth('login')">로그인 하기</button>
+            <p class="footer-link" onclick="toggleForm()">계정이 없으신가요? 생성하기</p>
+        </div>
+        <div id="signup-form" style="display:none;">
+            <input type="text" id="s-id" placeholder="새 아이디">
+            <input type="password" id="s-pw" placeholder="새 비밀번호">
+            <button onclick="auth('signup')" style="background: #34C759;">가입하기</button>
+            <p class="footer-link" onclick="toggleForm()">이미 계정이 있나요? 로그인</p>
+        </div>
+    </div>
+
+    <script>
+        function toggleForm() {
+            const l = document.getElementById('login-form'), s = document.getElementById('signup-form');
+            l.style.display = l.style.display === 'none' ? 'block' : 'none';
+            s.style.display = s.style.display === 'none' ? 'block' : 'none';
+        }
+        async function auth(type) {
+            const id = document.getElementById(type === 'login' ? 'l-id' : 's-id').value;
+            const pw = document.getElementById(type === 'login' ? 'l-pw' : 's-pw').value;
+            const res = await fetch('/' + type, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id, pw})
+            });
+            const data = await res.json();
+            if(data.status === 'success') {
+                if(type === 'login') location.reload();
+                else { alert('가입 성공! 로그인해주세요.'); toggleForm(); }
+            } else alert(data.message);
+        }
+    </script>
+</body>
+</html>

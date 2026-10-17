@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>페어한소기록 - 커스텀 디자인 버전</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <style>
+        :root { 
+            --st-sidebar-width: 300px; 
+            --chat-max-width: 500px;
+            --me-bg: #007AFF;
+            --me-text: #ffffff;
+            --other-bg: #e5e5ea;
+            --other-text: #000000;
+        }
+        /* 전체 폰트 통일 및 배경 */
+        * { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; box-sizing: border-box; }
+        body { display: flex; height: 100vh; margin: 0; background-color: #f0f2f5; overflow: hidden; }
+
+        /* 사이드바 */
+        .sidebar { width: var(--st-sidebar-width); background: #f8f9fb; border-right: 1px solid #e6e9ef; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
+        .st-card { background: white; padding: 15px; border-radius: 10px; border: 1px solid #e6e9ef; margin-bottom: 10px; }
+        .st-button { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #d1d5db; background: white; cursor: pointer; margin-top: 5px; transition: 0.2s; font-size: 13px; }
+        .st-button:hover { border-color: #ff4b4b; color: #ff4b4b; }
+
+        /* 채팅 메인 */
+        .main-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; position: relative; }
+        .chat-section {
+            width: 100%; height: 100%; max-width: var(--chat-max-width);
+            display: flex; flex-direction: column; position: relative;
+            border-radius: 25px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);
+            background-color: #ffffff;
+        }
+
+        .chat-box { width: 100%; flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 1; }
+        .chat-header { padding: 15px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.05); }
+
+        /* 메시지 스타일 */
+        .message-row { display: flex; width: 100%; gap: 10px; align-items: flex-start; z-index: 2; }
+        .row-me { justify-content: flex-end; }
+        .profile-pic { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 1px solid #eee; flex-shrink: 0; }
+        .bubble-container { display: flex; flex-direction: column; max-width: 70%; }
+        .bubble-name { font-size: 11px; color: #8e8e93; margin-bottom: 4px; margin-left: 4px; }
+        .row-me .bubble-name { margin-left: 0; margin-right: 4px; text-align: right; }
+        .bubble { padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.4; word-break: break-all; }
+        .me-bubble { background: var(--me-bg) !important; color: var(--me-text) !important; border-top-right-radius: 2px; }
+        .other-bubble { background: var(--other-bg) !important; color: var(--other-text) !important; border-top-left-radius: 2px; }
+
+        .sticker { position: absolute; cursor: move; width: 100px; z-index: 5; }
+
+        /* 설정창 레이아웃 가독성 개선 */
+        #base-settings-toggle, #ext-toggle-btn {
+            position: fixed; right: 20px; width: 50px; height: 50px; border-radius: 50%;
+            color: white; border: none; cursor: pointer; z-index: 10002; 
+            display: flex; align-items: center; justify-content: center; font-size: 22px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        #base-settings-toggle { bottom: 80px; background: #4a5568; }
+        #ext-toggle-btn { bottom: 20px; background: #3498db; }
+
+        .settings-sidebar, #ext-panel-root { 
+            position: fixed; top: 20px; right: 80px; width: 320px; 
+            background: white; padding: 20px; border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
+            z-index: 10001; overflow-y: auto; display: none;
+            max-height: 85vh; border: 1px solid #e6e9ef;
+        }
+        .settings-sidebar.active, #ext-panel-root.active { display: block; animation: fadeInRight 0.3s ease; }
+
+        /* 설정창 내부 폰트 사이즈 조정 */
+        .settings-sidebar h3, #ext-panel-root h3 { font-size: 16px; margin: 0; }
+        .expander, .ext-group { border: 1px solid #e6e9ef; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+        .expander-header, .ext-group-header { background: #f8f9fb; padding: 10px; font-weight: bold; font-size: 13px; cursor: pointer; }
+        .expander-content, .ext-group-content { padding: 12px; font-size: 13px; }
+
+        /* 메시지 관리 리스트 스타일 */
+        .msg-edit-item { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #f0f2f5; }
+        .msg-edit-item input { flex: 1; font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; }
+
+        .input-area { width: 100%; padding: 15px; border-top: 1px solid #f0f2f5; display: flex; gap: 10px; background: white; z-index: 10; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .ext-color-picker { width: 100%; height: 30px; border: 1px solid #e2e8f0; border-radius: 5px; cursor: pointer; }
+
+        @keyframes fadeInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+        #cropper-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
+        .crop-area { width: 100%; aspect-ratio: 1/1; max-height: 300px; background: #eee; overflow: hidden; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2 style="font-size:18px;">💬 페어한소기록</h2>
+        <div class="st-card"><b>👤 ID:</b> {{ display_id }}</div>
+        <button class="st-button" onclick="location.href='/logout'">로그아웃</button>
+        <hr style="border:0; border-top:1px solid #e6e9ef; margin:20px 0;">
+        <div id="saved-list"></div>
+        <button class="st-button" onclick="newChat()" style="margin-top:20px;">➕ 새 채팅 시작</button>
+    </div>
+
+    <div class="main-container">
+        <div class="chat-section" id="chat-section">
+            <div class="chat-header"><h3 id="chat-title-text" style="margin:0; font-size:16px;">새로운 채팅</h3></div>
+            <div class="chat-box" id="chat-box"></div>
+            <div class="input-area">
+                <input type="text" id="msg-input" placeholder="메시지 입력..." onkeypress="if(event.keyCode==13) sendMessage('me')">
+                <button class="st-button" style="width:60px; background:#007AFF; color:white; border:none; margin:0;" onclick="sendMessage('me')">나</button>
+                <button class="st-button" style="width:60px; background:#555; color:white; border:none; margin:0;" onclick="sendMessage('other')">상대</button>
+            </div>
+        </div>
+
+        <button id="base-settings-toggle" onclick="toggleSettings()">⚙️</button>
+        <button id="ext-toggle-btn">🎨</button>
+
+        <div class="settings-sidebar" id="settings-sidebar">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px;">
+                <h3>🛠️ 기본 설정</h3>
+                <span style="cursor:pointer; font-size:24px; color:#999;" onclick="toggleSettings()">&times;</span>
+            </div>
+            
+            <div class="expander">
+                <div class="expander-header">👤 프로필 설정</div>
+                <div class="expander-content">
+                    <input type="text" id="me-name-input" placeholder="나의 이름" style="width:100%; margin-bottom:5px; padding:5px;">
+                    <input type="text" id="other-name-input" placeholder="상대 이름" style="width:100%; padding:5px;">
+                    <div style="display:flex; gap:5px; margin-top:10px;">
+                        <button class="st-button" onclick="openFilePicker('me')">나 사진</button>
+                        <button class="st-button" onclick="openFilePicker('other')">상대 사진</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="expander">
+                <div class="expander-header">📝 대화 내용 수정/삭제</div>
+                <div class="expander-content" id="msg-manager-list" style="max-height:200px; overflow-y:auto; background:#fcfcfc; padding:10px; border-radius:5px; border:1px solid #eee;">
+                    </div>
+            </div>
+
+            <div class="expander">
+                <div class="expander-header">💾 데이터 관리</div>
+                <div class="expander-content">
+                    <input type="text" id="save-title-input" placeholder="채팅 제목" style="width:100%; margin-bottom:5px; padding:5px;">
+                    <button class="st-button" style="background:#ff4b4b; color:white;" onclick="saveToStorage()">목록에 저장</button>
+                    <button class="st-button" style="background:#28a745; color:white;" onclick="saveAsImage()">📸 이미지 저장</button>
+                    <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
+                    <button class="st-button" onclick="exportData()" style="background:#4a5568; color:white;">📤 파일 내보내기</button>
+                    <button class="st-button" onclick="document.getElementById('import-file').click()" style="background:#4a5568; color:white;">📥 파일 불러오기</button>
+                    <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
+                </div>
+            </div>
+        </div>
+
+        <div id="ext-panel-root">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3>🎨 환경 설정</h3>
+                <span id="ext-close-panel" style="cursor:pointer; font-size:24px; color:#999;">&times;</span>
+            </div>
+            <div class="ext-group">
+                <div class="ext-group-header">배경 & 테마</div>
+                <div class="ext-group-content" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <div style="grid-column: span 2;"><label style="font-size:11px;">배경색</label><input type="color" id="ext-bg-color" class="ext-color-picker" oninput="updateChatBg(this.value)"></div>
+                    <div><label style="font-size:11px;">나 배경</label><input type="color" id="ext-me-bg" class="ext-color-picker" oninput="updateTheme('--me-bg', this.value)"></div>
+                    <div><label style="font-size:11px;">나 글자</label><input type="color" id="ext-me-text" class="ext-color-picker" oninput="updateTheme('--me-text', this.value)"></div>
+                    <div><label style="font-size:11px;">상대 배경</label><input type="color" id="ext-other-bg" class="ext-color-picker" oninput="updateTheme('--other-bg', this.value)"></div>
+                    <div><label style="font-size:11px;">상대 글자</label><input type="color" id="ext-other-text" class="ext-color-picker" oninput="updateTheme('--other-text', this.value)"></div>
+                </div>
+            </div>
+            <div class="ext-group">
+                <div class="ext-group-header">스티커</div>
+                <div class="ext-group-content">
+                    <button class="st-button" onclick="document.getElementById('sticker-upload').click()">🖼️ 스티커 추가</button>
+                    <input type="file" id="sticker-upload" style="display:none" accept="image/*" onchange="addSticker(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cropper-modal">
+        <div class="modal-content">
+            <div class="crop-area"><img id="crop-image-src" src=""></div>
+            <div style="display:flex; gap:10px;"><button class="st-button" onclick="applyCrop()">적용</button><button class="st-button" onclick="closeCropper()">취소</button></div>
+        </div>
+    </div>
+
+    <input type="file" id="file-hidden" style="display:none" accept="image/*" onchange="loadPhoto(event)">
+
+    <script>
+        const DEFAULT_SETTINGS = { bg_color: "#ffffff", me_bg: "#007AFF", me_text: "#ffffff", other_bg: "#e5e5ea", other_text: "#000000" };
+        let state = { messages: [], saved_chats: [], me_name: "나", other_name: "상대방", me_pic: "", other_pic: "", title: "새로운 채팅", settings: {...DEFAULT_SETTINGS}, stickers: [] };
+        let cropper; let currentTarget = 'me';
+
+        // 테마 적용
+        function applyCurrentTheme(s) {
+            if(!s) return;
+            document.documentElement.style.setProperty('--me-bg', s.me_bg);
+            document.documentElement.style.setProperty('--me-text', s.me_text);
+            document.documentElement.style.setProperty('--other-bg', s.other_bg);
+            document.documentElement.style.setProperty('--other-text', s.other_text);
+            document.getElementById('chat-section').style.backgroundColor = s.bg_color;
+            document.getElementById('ext-bg-color').value = s.bg_color;
+            document.getElementById('ext-me-bg').value = s.me_bg;
+            document.getElementById('ext-me-text').value = s.me_text;
+            document.getElementById('ext-other-bg').value = s.other_bg;
+            document.getElementById('ext-other-text').value = s.other_text;
+        }
+
+        function updateTheme(v, val) { document.documentElement.style.setProperty(v, val); state.settings[v.replace('--','').replace('-','_')] = val; }
+        function updateChatBg(val) { document.getElementById('chat-section').style.backgroundColor = val; state.settings.bg_color = val; }
+
+        // 메시지 수정 및 삭제 기능
+        function renderMsgManager() {
+            const list = document.getElementById('msg-manager-list');
+            list.innerHTML = state.messages.map((m, i) => `
+                <div class="msg-edit-item">
+                    <span style="font-size:10px; min-width:25px;">${m.role === 'me' ? '나' : '상'}</span>
+                    <input type="text" value="${m.content}" onchange="editMsg(${i}, this.value)">
+                    <button onclick="deleteMsg(${i})" style="border:none; background:none; cursor:pointer; font-size:12px;">❌</button>
+                </div>
+            `).join('') || '<div style="text-align:center; color:#ccc; font-size:12px;">대화 없음</div>';
+        }
+
+        function editMsg(i, newVal) { state.messages[i].content = newVal; sync(); }
+        function deleteMsg(i) { if(confirm("이 메시지를 삭제할까요?")) { state.messages.splice(i, 1); sync(); } }
+
+        // 데이터 백업
+        function exportData() {
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `chat_backup.json`;
+            link.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try { state = JSON.parse(e.target.result); sync(); alert("불러오기 완료!"); } catch(err) { alert("파일 형식 오류"); }
+            };
+            reader.readAsText(file);
+        }
+
+        // 스티커
+        function createSticker(src, l, t) {
+            const img = document.createElement('img');
+            img.src = src; img.className = 'sticker'; img.style.left = l; img.style.top = t;
+            img.onmousedown = function(ev) {
+                let sx = ev.clientX - img.getBoundingClientRect().left;
+                let sy = ev.clientY - img.getBoundingClientRect().top;
+                document.onmousemove = function(ev) {
+                    img.style.left = (ev.clientX - sx - document.getElementById('chat-section').getBoundingClientRect().left) + 'px';
+                    img.style.top = (ev.clientY - sy - document.getElementById('chat-section').getBoundingClientRect().top) + 'px';
+                };
+                document.onmouseup = () => { document.onmousemove = null; };
+            };
+            img.oncontextmenu = (e) => { e.preventDefault(); img.remove(); };
+            document.getElementById('chat-section').appendChild(img);
+        }
+
+        function addSticker(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => createSticker(ev.target.result, '50px', '50px');
+            reader.readAsDataURL(e.target.files[0]);
+        }
+
+        // 저장 및 불러오기
+        function saveToStorage() {
+            const title = document.getElementById('save-title-input').value || "제목없음";
+            const stickers = Array.from(document.querySelectorAll('.sticker')).map(el => ({ src: el.src, left: el.style.left, top: el.style.top }));
+            state.saved_chats.push({
+                title,
+                messages: JSON.parse(JSON.stringify(state.messages)),
+                me_name: document.getElementById('me-name-input').value,
+                other_name: document.getElementById('other-name-input').value,
+                me_pic: state.me_pic,
+                other_pic: state.other_pic,
+                settings: JSON.parse(JSON.stringify(state.settings)),
+                stickers: stickers
+            });
+            sync(); alert("저장되었습니다.");
+        }
+
+        function loadSaved(i) {
+            const item = state.saved_chats[i];
+            state.messages = [...item.messages];
+            state.title = item.title;
+            state.me_name = item.me_name;
+            state.other_name = item.other_name;
+            state.me_pic = item.me_pic;
+            state.other_pic = item.other_pic;
+            state.settings = {...item.settings};
+            document.getElementById('chat-title-text').innerText = state.title;
+            document.getElementById('me-name-input').value = state.me_name;
+            document.getElementById('other-name-input').value = state.other_name;
+            applyCurrentTheme(state.settings);
+            document.querySelectorAll('.sticker').forEach(s => s.remove());
+            if(item.stickers) item.stickers.forEach(s => createSticker(s.src, s.left, s.top));
+            render();
+        }
+
+        // 초기화 및 렌더링
+        function resetToDefault() {
+            state.messages = []; state.title = "새로운 채팅";
+            state.me_name = "나"; state.other_name = "상대방";
+            state.me_pic = ""; state.other_pic = "";
+            state.settings = {...DEFAULT_SETTINGS};
+            document.getElementById('chat-title-text').innerText = state.title;
+            document.getElementById('me-name-input').value = state.me_name;
+            document.getElementById('other-name-input').value = state.other_name;
+            applyCurrentTheme(state.settings);
+            document.querySelectorAll('.sticker').forEach(s => s.remove());
+        }
+
+        function newChat() { if(confirm("새 대화를 시작할까요?")) { resetToDefault(); render(); } }
+
+        async function init() {
+            try {
+                const res = await fetch('/api/data');
+                const data = await res.json();
+                state.saved_chats = data.saved_chats || [];
+                resetToDefault();
+                render();
+            } catch(e) { render(); }
+        }
+
+        function render() {
+            const box = document.getElementById('chat-box');
+            box.innerHTML = state.messages.map(m => {
+                const isMe = m.role === 'me';
+                const pic = isMe ? state.me_pic : state.other_pic;
+                const name = isMe ? state.me_name : state.other_name;
+                return `
+                    <div class="message-row ${isMe ? 'row-me' : ''}">
+                        ${!isMe ? `<img src="${pic}" class="profile-pic" onerror="this.src='https://via.placeholder.com/45'">` : ''}
+                        <div class="bubble-container">
+                            <div class="bubble-name">${name}</div>
+                            <div class="bubble ${isMe ? 'me-bubble' : 'other-bubble'}">${m.content}</div>
+                        </div>
+                        ${isMe ? `<img src="${pic}" class="profile-pic" onerror="this.src='https://via.placeholder.com/45'">` : ''}
+                    </div>`;
+            }).join('');
+            box.scrollTop = box.scrollHeight;
+            renderSaved();
+            renderMsgManager(); 
+        }
+
+        function renderSaved() {
+            document.getElementById('saved-list').innerHTML = (state.saved_chats || []).map((s, i) => `
+                <div class="st-card">
+                    <div style="font-size:12px; font-weight:bold;">${s.title}</div>
+                    <div style="display:flex; gap:5px; margin-top:5px;">
+                        <button class="st-button" onclick="loadSaved(${i})" style="flex:2">📁 불러오기</button>
+                        <button class="st-button" onclick="confirmDelete(${i})" style="flex:1; color:red;">🗑️</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function confirmDelete(i) {
+            if (confirm(`'${state.saved_chats[i].title}' 기록을 삭제할까요?`)) {
+                state.saved_chats.splice(i, 1); sync();
+            }
+        }
+
+        async function sync() { render(); try { await fetch('/api/data', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(state) }); } catch(e){} }
+        
+        function sendMessage(role) {
+            const input = document.getElementById('msg-input');
+            if(!input.value.trim()) return;
+            state.messages.push({role, content: input.value});
+            input.value = ''; sync();
+        }
+
+        function toggleSettings() { 
+            document.getElementById('ext-panel-root').classList.remove('active');
+            document.getElementById('settings-sidebar').classList.toggle('active'); 
+        }
+        document.getElementById('ext-toggle-btn').onclick = () => {
+            document.getElementById('settings-sidebar').classList.remove('active');
+            document.getElementById('ext-panel-root').classList.toggle('active');
+        };
+        document.getElementById('ext-close-panel').onclick = () => document.getElementById('ext-panel-root').classList.remove('active');
+
+        function openFilePicker(t) { currentTarget = t; document.getElementById('file-hidden').click(); }
+        function loadPhoto(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('crop-image-src').src = ev.target.result;
+                document.getElementById('cropper-modal').style.display = 'flex';
+                if(cropper) cropper.destroy();
+                cropper = new Cropper(document.getElementById('crop-image-src'), { aspectRatio: 1, viewMode: 1 });
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+        function applyCrop() {
+            state[currentTarget + '_pic'] = cropper.getCroppedCanvas({width:200,height:200}).toDataURL();
+            document.getElementById('cropper-modal').style.display = 'none'; sync();
+        }
+        function closeCropper() { document.getElementById('cropper-modal').style.display='none'; }
+
+        async function saveAsImage() {
+            const chatSection = document.getElementById('chat-section');
+            const canvas = await html2canvas(chatSection, { scale: 2, useCORS: true });
+            const link = document.createElement('a');
+            link.download = `${state.title}.png`; link.href = canvas.toDataURL(); link.click();
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
