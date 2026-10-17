@@ -429,9 +429,21 @@
 
         async function saveAsImage() {
             const chatSection = document.getElementById('chat-section');
-            const canvas = await html2canvas(chatSection, { scale: 2, useCORS: true });
-            const link = document.createElement('a');
-            link.download = `${state.title}.png`; link.href = canvas.toDataURL(); link.click();
+            const inputArea = chatSection.querySelector('.input-area');
+    
+            // 1. 이미지 저장 시 하단 입력 창을 잠시 숨김
+            inputArea.style.display = 'none';
+    
+            try {
+                const canvas = await html2canvas(chatSection, { scale: 2, useCORS: true });
+                const link = document.createElement('a');
+                link.download = `${state.title}.png`; 
+                link.href = canvas.toDataURL(); 
+                link.click();
+            } finally {
+                // 2. 캡처가 끝나면 입력 창을 다시 원래대로 표시
+                inputArea.style.display = 'flex';
+            }
         }
         window.onload = init;
     </script>
