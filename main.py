@@ -4,7 +4,7 @@ import os
 import hashlib
 import datetime
 
-app = Flask(__name__)
+app = Flask(__app__)
 app.secret_key = "your_secret_key_here" # 세션 암호화를 위한 키
 
 # [추가] 이미지 base64 데이터 전송을 위해 전송 용량 제한을 늘립니다 (16MB)
