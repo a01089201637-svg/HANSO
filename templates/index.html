@@ -322,12 +322,37 @@
             try {
                 const res = await fetch('/api/data');
                 const data = await res.json();
+        
+                // 서버에서 불러온 데이터가 있다면 state에 반영
                 state.saved_chats = data.saved_chats || [];
-                resetToDefault();
-                render();
-            } catch(e) { render(); }
-        }
+                state.me_name = data.me_name || "나";
+                state.other_name = data.other_name || "상대방";
+                state.me_pic = data.me_pic || "";
+                state.other_pic = data.other_pic || "";
+                if(data.settings) state.settings = {...data.settings};
 
+                // 입력창과 화면에 반영
+                document.getElementById('me-name-input').value = state.me_name;
+                document.getElementById('other-name-input').value = state.other_name;
+                applyCurrentTheme(state.settings);
+        
+                render();
+            } catch(e) { 
+                render(); 
+            }
+        }
+       
+        // 이름 입력 필드 실시간 동기화 설정
+        document.getElementById('me-name-input').addEventListener('input', (e) => {
+            state.me_name = e.target.value;
+            sync();
+        });
+
+        document.getElementById('other-name-input').addEventListener('input', (e) => {
+            state.other_name = e.target.value;
+            sync();
+        });
+    
         function render() {
             const box = document.getElementById('chat-box');
             box.innerHTML = state.messages.map(m => {
