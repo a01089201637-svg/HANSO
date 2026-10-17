@@ -1,34 +1,37 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-import json
+from upstash_redis import Redis
 import os
 import hashlib
-import datetime
+import json
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-# Vercel 쓰기 가능 임시 경로(/tmp)로 변경
-USER_DB_FILE = "/tmp/users_db.json"
+# Upstash Redis 클라이언트 초기화 (환경 변수 자동 연동)
+redis = Redis.from_env()
 
-# --- 유틸리티 함수 ---
+USER_DB_KEY = "hanso:users_db"
+
 def load_user_db():
-    if os.path.exists(USER_DB_FILE):
-        with open(USER_DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    # Upstash에서 회원 DB(Hash 형태) 가져오기
+    db = redis.hgetall(USER_DB_KEY)
+    if not db:
+        return {}
+    # Upstash 반환값이 바이트/문자열일 수 있으므로 정돈
+    return {k.decode('utf-8') if isinstance(k, bytes) else k: 
+            v.decode('utf-8') if isinstance(v, bytes) else v for k, v in db.items()}
 
 def save_user_db(db):
-    with open(USER_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(db, f, ensure_ascii=False, indent=4)
+    if db:
+        redis.hset(USER_DB_KEY, values=db)
 
 def make_hash(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
-def get_user_data_path():
+def get_user_data_key():
     user_hash = session.get('user_session')
-    return f"/tmp/chat_data_{user_hash}.json"
+    return f"hanso:chat_data:{user_hash}"
 
 # --- 경로 설정 ---
 @app.route('/')
@@ -77,20 +80,21 @@ def handle_data():
     if 'user_session' not in session: 
         return jsonify({"error": "unauthorized"}), 401
     
-    path = get_user_data_path()
+    key = get_user_data_key()
     
     if request.method == 'GET':
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # 기존 파일에 이름 값이 없을 경우를 대비한 기본값 보정
-                if "me_name" not in data:
-                    data["me_name"] = "나"
-                if "other_name" not in data:
-                    data["other_name"] = "상대방"
+        raw_data = redis.get(key)
+        if raw_data:
+            # Redis에 저장된 JSON 문자열을 파싱
+            try:
+                data = json.loads(raw_data)
+                if "me_name" not in data: data["me_name"] = "나"
+                if "other_name" not in data: data["other_name"] = "상대방"
                 return jsonify(data)
+            except:
+                pass
         
-        # 유저 데이터 파일이 없을 경우 초기 기본값 반환
+        # 데이터가 없을 경우 기본값 반환
         return jsonify({
             "saved_chats": [], 
             "me_name": "나", 
@@ -100,16 +104,11 @@ def handle_data():
             "messages": []
         })
     else:
-        # POST 요청: 전달받은 JSON 데이터(이름, 사진, 메시지 등 전체 상태)를 유저별 파일에 저장
+        # POST 요청: 전달받은 전체 JSON 상태를 Upstash Redis에 문자열로 저장
         req_data = request.json
-        
-        # 기존에 저장된 데이터가 있다면 불러와서 이름이나 프로필 등이 유실되지 않도록 병합하거나 그대로 저장
-        # 프론트엔드에서 전체 상태(me_name, other_name 포함)를 통째로 보내고 있다면 그대로 저장해도 무방합니다.
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(req_data, f, ensure_ascii=False, indent=4)
+        redis.set(key, json.dumps(req_data, ensure_ascii=False))
         return jsonify({"status": "success"})
 
-# --- 테스트용 경로 추가 ---
 @app.route('/custom_test')
 def custom_test():
     return render_template('custom_test.html')

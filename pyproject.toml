@@ -5,6 +5,7 @@ description = "Hanso Web App"
 requires-python = ">=3.10"
 dependencies = [
     "flask",
+    "upstash-redis"
 ]
 
 [tool.vercel]
