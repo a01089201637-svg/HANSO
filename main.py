@@ -5,12 +5,12 @@ import hashlib
 import datetime
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key_here" # 세션 암호화를 위한 키
+app.secret_key = "your_secret_key_here"
 
-# [추가] 이미지 base64 데이터 전송을 위해 전송 용량 제한을 늘립니다 (16MB)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-USER_DB_FILE = "users_db.json"
+# Vercel 쓰기 가능 임시 경로(/tmp)로 변경
+USER_DB_FILE = "/tmp/users_db.json"
 
 # --- 유틸리티 함수 ---
 def load_user_db():
@@ -28,7 +28,7 @@ def make_hash(text):
 
 def get_user_data_path():
     user_hash = session.get('user_session')
-    return f"chat_data_{user_hash}.json"
+    return f"/tmp/chat_data_{user_hash}.json"
 
 # --- 경로 설정 ---
 @app.route('/')
